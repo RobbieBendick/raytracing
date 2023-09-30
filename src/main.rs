@@ -3,8 +3,9 @@ use itertools::Itertools;
 use indicatif::ProgressIterator;
 use std::{fs, io};
 
-const IMAGE_HEIGHT: i32 = 2;
-const IMAGE_WIDTH: i32 = 3;
+// amount of pixel rows and columns in the image
+const IMAGE_HEIGHT: i32 = 12;
+const IMAGE_WIDTH: i32 = 15;
 const MAX_VALUE: i32 = 255;
 
 
@@ -18,18 +19,18 @@ const VIEWPORT_V: DVec3 = DVec3::new(0., -VIEWPORT_HEIGHT, 0.);
 
 fn main() -> io::Result<()> {
 
-    // Calculate the horizontal and vertical vectors
+    // calculate the horizontal and vertical vectors
     let pixel_delta_u: DVec3 = VIEWPORT_U / IMAGE_WIDTH as f64;
     let pixel_delta_v: DVec3 = VIEWPORT_V / IMAGE_HEIGHT as f64;
 
 
-    // Calculate the location of the upper left pixel
+    // calculate the location of the upper left pixel
     let viewport_upper_left: DVec3 = CAMERA_CENTER - DVec3::new(0.,0., FOCAL_LENGTH) - VIEWPORT_U / 2. + VIEWPORT_V / 2.;
 
     let pixel00_loc: DVec3 = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
 
 
-    let pixels = (0..IMAGE_HEIGHT)
+    let pixels: String = (0..IMAGE_HEIGHT)
 
         // get x, y coordinates of every pixel
         .cartesian_product(0..IMAGE_WIDTH)
@@ -41,16 +42,16 @@ fn main() -> io::Result<()> {
 
         // map over every x and y coordinate on every pixel
         .map(|(y, x)| {
-            let pixel_center = pixel00_loc + (x as f64 * pixel_delta_u) + (y as f64 * pixel_delta_v);
+            let pixel_center: DVec3 = pixel00_loc + (x as f64 * pixel_delta_u) + (y as f64 * pixel_delta_v);
 
-            let ray_direction = pixel_center - CAMERA_CENTER;
+            let ray_direction: DVec3 = pixel_center - CAMERA_CENTER;
 
             let ray = Ray {
                 origin: CAMERA_CENTER,
                 direction: ray_direction,
             };
 
-            let pixel_color = ray.color() * 255.0;
+            let pixel_color: DVec3 = ray.color() * 255.0;
 
             format!(
                 "{} {} {}",
@@ -80,20 +81,15 @@ struct Ray {
 
 impl Ray {
     fn at(&self, t: f64) -> DVec3 {
-        self.origin + t * self.direction
-    }
-    fn color(&self) -> DVec3 {
-        let t = Self::hit_sphere(&DVec3::new(0.,0.,-1.), 0.5, self);
-        if t > 0. {
-            let N = (self.at(t) - DVec3::new(0.,0.,-1.)).normalize();
-            return 0.5 * (N + 1.0)
-        }
-
-        let unit_direction = self.direction.normalize();
-        let a = 0.5 * (unit_direction.y + 1.0);
-        return (1.0 - a) * DVec3::new(1.0,1.0,1.0) + a * DVec3::new(0.5, 0.7, 1.0);
+        return self.origin + t * self.direction;
     }
     
+    fn color(&self) -> DVec3 {
+        // basically just make a gradient    
+        let unit_direction = self.direction.normalize();
+        let t = 0.5 * (unit_direction.y + 1.0);
+        return (1.0 - t) * DVec3::new(1., 1., 1.) + t * DVec3::new(0.5, 0.7, 1.7);
+    }
 
     fn hit_sphere(center: &DVec3, radius: f64, ray: &Ray) -> f64 {
         let oc = ray.origin - *center;

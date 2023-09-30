@@ -4,8 +4,10 @@ use indicatif::ProgressIterator;
 use std::{fs, io};
 
 // amount of pixel rows and columns in the image
-const IMAGE_HEIGHT: i32 = 12;
-const IMAGE_WIDTH: i32 = 15;
+const aspect_ratio: f64 = 16.0 / 9.0;
+const IMAGE_WIDTH: i32 = 400;
+const IMAGE_HEIGHT: i32 = IMAGE_WIDTH as i32 / aspect_ratio as i32;
+
 const MAX_VALUE: i32 = 255;
 
 
@@ -16,6 +18,7 @@ const VIEWPORT_HEIGHT: f64 = 2.0;
 const VIEWPORT_WIDTH: f64 = VIEWPORT_HEIGHT as f64 * IMAGE_WIDTH as f64 / IMAGE_HEIGHT as f64;
 const VIEWPORT_U: DVec3 = DVec3::new(VIEWPORT_WIDTH, 0., 0.);
 const VIEWPORT_V: DVec3 = DVec3::new(0., -VIEWPORT_HEIGHT, 0.);
+
 
 fn main() -> io::Result<()> {
 
@@ -98,10 +101,10 @@ impl Ray {
         let c =  oc.length_squared() - radius * radius;
         let discriminant = half_b * half_b - a * c;
 
+        // check if the ray hits the sphere
         if discriminant < 0. {
             return -1.0;
-        } else {
-            return ( -half_b - discriminant.sqrt() ) / a;
-        }
+        } 
+        return ( -half_b - discriminant.sqrt() ) / a;
     }
 }

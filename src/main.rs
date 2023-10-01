@@ -5,14 +5,14 @@ use std::{fs, io};
 
 // image
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
-const IMAGE_WIDTH: i32 = 400;
+const IMAGE_WIDTH: i32 = 700;
 const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as u32;
 const MAX_VALUE: i32 = 255;
 
 
 // camera
 const CAMERA_CENTER : DVec3 = DVec3::new(0., 0., 0.);
-const FOCAL_LENGTH: f64 = 1.0;
+const FOCAL_LENGTH: f64 = 0.3;
 const VIEWPORT_HEIGHT: f64 = 2.0;
 const VIEWPORT_WIDTH: f64 = VIEWPORT_HEIGHT as f64 * IMAGE_WIDTH as f64 / IMAGE_HEIGHT as f64;
 
@@ -28,7 +28,7 @@ fn main() -> io::Result<()> {
     let pixel_delta_v: DVec3 = VIEWPORT_V / IMAGE_HEIGHT as f64;
 
     // calculate the location of the upper left pixel.
-    let viewport_upper_left: DVec3 = CAMERA_CENTER - DVec3::new(0.,0., FOCAL_LENGTH) - VIEWPORT_U / 2. + VIEWPORT_V / 2.;
+    let viewport_upper_left: DVec3 = CAMERA_CENTER - DVec3::new(0.,-2., FOCAL_LENGTH) - VIEWPORT_U / 2. + VIEWPORT_V / 2.;
     let pixel00_loc: DVec3 = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
 
 
@@ -63,7 +63,7 @@ fn main() -> io::Result<()> {
             )
         })
         .join("\n");
-    
+
     // write the image to a file
     fs::write("output.ppm", format!(
         "P3
@@ -88,7 +88,7 @@ impl Ray {
     
   fn color(&self) -> DVec3 {
         // Check if the ray hits the sphere
-        let t = Self::hit_sphere(&DVec3::new(0., 0., -1.2), 0.5, &self);
+        let t = Self::hit_sphere(&DVec3::new(0., 0., -1.2), 0.05, &self);
         if t > 0. {
             let N = (self.at(t) - DVec3::new(0., 0., -1.)).normalize();
             return 0.5 * (N + 1.0);
@@ -108,14 +108,14 @@ impl Ray {
         let a = ray.direction.length_squared();
         let half_b = 2.0 * oc.dot(ray.direction);
         let c = oc.length_squared() - radius * radius;
-        let discriminant = half_b * half_b - a * c;
-    
+
         // check if the ray hits the sphere
+        let discriminant = half_b * half_b - a * c;
         if discriminant < 0. {
             return -1.0;
         }
-    
-        return (-half_b - discriminant.sqrt()) / a;
+
+        return (-half_b - discriminant.sqrt()) / a
     }
     
     

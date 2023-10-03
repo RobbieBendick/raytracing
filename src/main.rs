@@ -56,14 +56,14 @@ impl Camera {
             pixel_delta_v,
             viewport_upper_left,
             pixel_00_loc: pixel_00_loc,
-            samples_per_pixel: 10,
-            max_depth: 10,
+            samples_per_pixel: 100,
+            max_depth: 50,
         }
 
     }
     fn get_ray(&self, x: i16, y: i16) -> Ray {
 
-        // Get a randomly sampled camera ray for the pixel location at x,y
+        // get a randomly sampled camera ray for the pixel location at x,y
         let pixel_center = self.pixel_00_loc + (x as f64 * self.pixel_delta_u) + (y as f64 * self.pixel_delta_v);
         let pixel_sample = pixel_center + Self::pixel_sample_square(self);
 
@@ -82,8 +82,8 @@ impl Camera {
     }
     
     fn pixel_sample_square(&self) -> DVec3 {
-        // Returns a random point in the square surrounding a pixel at the origin.
-        // This is used to sample the pixel for anti-aliasing.
+        // returns a random point in the square surrounding a pixel at the origin.
+        // this is used to sample the pixel for anti-aliasing.
         let px = -0.5 + Self::generate_random_number();
         let py = -0.5 + Self::generate_random_number();
         return (px * self.pixel_delta_u) + (py * self.pixel_delta_v);
@@ -103,19 +103,38 @@ impl Camera {
 
             // map over every x and y coordinate on every pixel
             .map(|(y, x)| {
-                // get the sum of all the colors of the samples for the pixel
+
+                // get a fraction of a pixel. in this case, it's 1/10th of a pixel
+                // we'll combine the colors of all the samples to get the final color of the pixel
                 let scale_factor = (self.samples_per_pixel as f64).recip();
 
+                // get the sum of all the colors of the samples for the pixel
                 let multisampled_pixel_color = (0..self.samples_per_pixel)
                 .into_iter()
-                .map(|_| self.get_ray(x, y).color(&world) * 255.0 * scale_factor)
-                .sum::<DVec3>();
+                .map(|_| {
+                    self.get_ray(x, y)
+                        .color(self.max_depth, &world)
+                })
+                .sum::<DVec3>() * scale_factor;
+
+                let color = DVec3 {
+                    x: linear_to_gamma(multisampled_pixel_color.x),
+                    y: linear_to_gamma(multisampled_pixel_color.y),
+                    z: linear_to_gamma(multisampled_pixel_color.z),
+                }
+
+                // lighten the color
+
+                .clamp(
+                    DVec3::splat(0.),
+                    DVec3::splat(0.999),
+                ) * 256.;
 
                 format!(
                     "{} {} {}",
-                    multisampled_pixel_color.x,
-                    multisampled_pixel_color.y,
-                    multisampled_pixel_color.z
+                    color.x,
+                    color.y,
+                    color.z
                 )
             })
             .join("\n");
@@ -132,7 +151,9 @@ impl Camera {
 }
 
 
-
+fn linear_to_gamma(scalar:f64) -> f64 {
+    return scalar.sqrt();
+}
 
 fn main() -> io::Result<()> {
     let mut world: HittableList = HittableList { objects: vec![] };
@@ -170,13 +191,23 @@ impl Ray {
         return self.origin + t * self.direction;
     }
     
-  fn color<T>(&self, world: &T) -> DVec3 
+  fn color<T>(&self, depth: i32, world: &T) -> DVec3 
   where
     T: Hittable, {
 
+        // if we've exceeded the ray bounce limit, no more light is gathered
+        if depth <= 0 {
+            return DVec3::ZERO;
+        }
+
         // if the ray hits the sphere, return the sphere's color
         if let Some(rec) = world.hit(&self, (0.)..f64::INFINITY) {
-            return 0.5 * (rec.normal + DVec3::new(1., 1., 1.))
+            let direction = rec.normal + random_unit_vector();
+            let ray = Ray {
+                origin: rec.point,
+                direction: direction,
+            };
+            return 0.4 * ray.color(depth - 1, world);   
         }
 
         // if the ray does not hit the sphere, return the background color
@@ -259,6 +290,7 @@ impl Hittable for HittableList {
     }
 }
 
+
 struct Sphere {
     center: DVec3,
     radius: f64,
@@ -303,5 +335,35 @@ impl Hittable for Sphere {
             true,
         );
         return Some(rec)
+    }
+}
+
+
+fn random_in_unit_sphere() -> DVec3 {
+    let mut rng = rand::thread_rng();
+    loop {
+        let vec = DVec3::new(
+            rng.gen_range(-1.0..1.0),
+            rng.gen_range(-1.0..1.0),
+            rng.gen_range(-1.0..1.0),
+        );
+        if vec.length_squared() >= 1.0 {
+            break vec;
+        }
+    }
+}
+
+fn random_unit_vector() -> DVec3 {
+    return random_in_unit_sphere().normalize();
+}
+
+fn random_on_hemisphere(normal: &DVec3) -> DVec3 {
+    let on_unit_sphere = random_unit_vector();
+
+    // in the same hesiphere as the normal
+    if on_unit_sphere.dot(*normal) > 0.0 {
+        return on_unit_sphere;
+    } else {
+        return -on_unit_sphere;
     }
 }

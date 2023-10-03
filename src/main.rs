@@ -151,8 +151,8 @@ impl Camera {
 }
 
 
-fn linear_to_gamma(scalar:f64) -> f64 {
-    return scalar.sqrt();
+fn linear_to_gamma(linear_component: f64) -> f64 {
+    return linear_component.sqrt();
 }
 
 fn main() -> io::Result<()> {
@@ -201,13 +201,13 @@ impl Ray {
         }
 
         // if the ray hits the sphere, return the sphere's color
-        if let Some(rec) = world.hit(&self, (0.)..f64::INFINITY) {
+        if let Some(rec) = world.hit(&self, (0.001)..f64::INFINITY) {
             let direction = rec.normal + random_unit_vector();
             let ray = Ray {
                 origin: rec.point,
                 direction: direction,
             };
-            return 0.4 * ray.color(depth - 1, world);   
+            return 0.3 * ray.color(depth - 1, world);   
         }
 
         // if the ray does not hit the sphere, return the background color

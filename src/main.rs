@@ -62,10 +62,10 @@ impl Camera {
 
     }
     fn get_ray(&self, x: i16, y: i16) -> Ray {
-        
+
         // Get a randomly sampled camera ray for the pixel location at x,y
         let pixel_center = self.pixel_00_loc + (x as f64 * self.pixel_delta_u) + (y as f64 * self.pixel_delta_v);
-        let pixel_sample = pixel_center + Self::pixel_sample_square();
+        let pixel_sample = pixel_center + Self::pixel_sample_square(self);
 
         let ray_origin = self.center;
         let ray_direction = pixel_sample - ray_origin;
@@ -81,11 +81,12 @@ impl Camera {
         return rng.gen_range(0.0..1.0);
     }
     
-    fn pixel_sample_square() -> f64 {
+    fn pixel_sample_square(&self) -> DVec3 {
         // Returns a random point in the square surrounding a pixel at the origin.
         // This is used to sample the pixel for anti-aliasing.
         let px = -0.5 + Self::generate_random_number();
-        return px;
+        let py = -0.5 + Self::generate_random_number();
+        return (px * self.pixel_delta_u) + (py * self.pixel_delta_v);
     }
 
     fn render_to_disk<T>(&self, world: T) where T: Hittable{ 

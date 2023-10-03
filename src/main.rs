@@ -4,31 +4,32 @@ use indicatif::ProgressIterator;
 use std::{fs, io, ops::Range};
 
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
-const IMAGE_WIDTH: i32 = 400;
+const IMAGE_WIDTH: i16 = 400;
 
 struct Camera {
-    image_width: i32,
-    image_height: u32,
-    max_value: u8,
+    image_width: i16,
+    image_height: i16,
+    max_value: i16,
     aspect_ratio: f64,
     center: DVec3,
     pixel_delta_u: DVec3,
     pixel_delta_v: DVec3,
     viewport_upper_left: DVec3,
-    pixel00_loc: DVec3,
+    pixel_00_loc: DVec3,
+    samples_per_pixel: i32,
+    max_depth: i32,
 }
 
 impl Camera {
 
-    fn new(image_width: i32, aspect_ratio: f64) -> Self {
+    fn new(image_width: i16, aspect_ratio: f64) -> Self {
 
-        let image_height: u32 = (image_width as f64 / aspect_ratio) as u32;
-        let max_value: u8 = 255;
+        let image_height: i16 = (image_width as f64 / aspect_ratio) as i16;
+        let max_value: i16 = 255;
         let center = DVec3::new(0., 0., 0.);
 
         let viewport_height: f64 = 2.0;
         let viewport_width: f64 = viewport_height as f64 * image_width as f64 / image_height as f64;
-
 
         // calculate the vectors across the horizontal and down the vertical viewport edges.
         let viewport_u: DVec3 = DVec3::new(viewport_width, 0., 0.);
@@ -36,12 +37,14 @@ impl Camera {
 
         let focal_length = 0.3;
 
+        // calculate the pixel deltas
         let pixel_delta_u: DVec3 = viewport_u / image_width as f64;
         let pixel_delta_v: DVec3 = viewport_v / image_height as f64;
-        let viewport_upper_left: DVec3 = center - DVec3::new(0.,-2., focal_length) - viewport_u / 2. + viewport_v / 2.;
-        let pixel00_loc: DVec3 = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
 
+        let viewport_upper_left: DVec3 = center - DVec3::new(0.,-2., focal_length) - viewport_u / 2. + viewport_v / 2.;
+        let pixel_00_loc: DVec3 = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
         
+        // return the camera's properties
         return Self {
             image_width,
             image_height,
@@ -51,7 +54,9 @@ impl Camera {
             pixel_delta_u,
             pixel_delta_v,
             viewport_upper_left,
-            pixel00_loc,
+            pixel_00_loc: pixel_00_loc,
+            samples_per_pixel: 10,
+            max_depth: 50,
         }
 
     }
@@ -70,15 +75,16 @@ impl Camera {
 
             // map over every x and y coordinate on every pixel
             .map(|(y, x)| {
-                let pixel_center: DVec3 = self.pixel00_loc + (x as f64 * self.pixel_delta_u) + (y as f64 * self.pixel_delta_v);
-
+                let pixel_center: DVec3 = self.pixel_00_loc + (x as f64 * self.pixel_delta_u) + (y as f64 * self.pixel_delta_v);
                 let ray_direction: DVec3 = pixel_center - self.center;
 
+                // create a ray from the camera to the pixel
                 let ray = Ray {
                     origin: self.center,
                     direction: ray_direction,
                 };
 
+                // grab the color of the pixel and convert it to an appropriate rgb value
                 let pixel_color: DVec3 = ray.color(&world) * 255.0;
 
                 format!(
@@ -105,7 +111,7 @@ impl Camera {
 
 
 fn main() -> io::Result<()> {
-    let mut world = HittableList { objects: vec![] };
+    let mut world: HittableList = HittableList { objects: vec![] };
 
     world.add(
         Sphere {
@@ -121,7 +127,10 @@ fn main() -> io::Result<()> {
         }
     );
 
+    // initialize the camera
     let camera = Camera::new(IMAGE_WIDTH, ASPECT_RATIO);
+
+    // render the image to disk
     camera.render_to_disk(world);
 
     Ok(())
@@ -141,15 +150,15 @@ impl Ray {
   where
     T: Hittable, {
 
+        // if the ray hits the sphere, return the sphere's color
         if let Some(rec) = world.hit(&self, (0.)..f64::INFINITY) {
             return 0.5 * (rec.normal + DVec3::new(1., 1., 1.))
         }
 
+        // if the ray does not hit the sphere, return the background color
         let unit_direction = self.direction.normalize();
         let a = 0.5 * (unit_direction.y + 1.0);
-
         let background_color = (1.0 - a) * DVec3::new(1., 1., 1.) + a * DVec3::new(0.5, 0.7, 1.0);
-
         return background_color; 
 
     }
@@ -168,6 +177,8 @@ impl HitRecord {
         front_face: bool,
     ) -> Self {
         let normal = if front_face { normal } else { -normal };
+
+        // return the hit record
         Self {
             point,
             normal,
@@ -203,12 +214,11 @@ trait Hittable {
     ) -> Option<HitRecord>;
 }
 
-
-
 impl Hittable for HittableList {
     fn hit(
         &self, ray: &Ray, interval: Range<f64>,
     ) -> Option<HitRecord> {
+        // iterate through every object in the list and find the closest hit
         let (_closest, hit_record) = self
         .objects.iter()
         .fold(
@@ -248,7 +258,7 @@ impl Hittable for Sphere {
         }
         let sqrtd = discriminant.sqrt();
 
-        // find the nearest root taht lies in the acceptable range
+        // find the nearest root that lies in the acceptable range
         let mut root = (-half_b - sqrtd) / a;
         if !interval.contains(&root) {
             root = (-half_b + sqrtd) / a;
@@ -261,6 +271,7 @@ impl Hittable for Sphere {
         let point = ray.at(t);
         let outward_normal = (point - self.center) / self.radius;
 
+        // return the hit record
         let rec = HitRecord::with_face_normal(
             point,
             outward_normal,

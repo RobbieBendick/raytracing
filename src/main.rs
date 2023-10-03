@@ -103,23 +103,19 @@ impl Camera {
 
             // map over every x and y coordinate on every pixel
             .map(|(y, x)| {
-                let pixel_center: DVec3 = self.pixel_00_loc + (x as f64 * self.pixel_delta_u) + (y as f64 * self.pixel_delta_v);
-                let ray_direction: DVec3 = pixel_center - self.center;
+                // get the sum of all the colors of the samples for the pixel
+                let scale_factor = (self.samples_per_pixel as f64).recip();
 
-                // create a ray from the camera to the pixel
-                let ray = Ray {
-                    origin: self.center,
-                    direction: ray_direction,
-                };
-
-                // grab the color of the pixel and convert it to an appropriate rgb value
-                let pixel_color: DVec3 = ray.color(&world) * 255.0;
+                let multisampled_pixel_color = (0..self.samples_per_pixel)
+                .into_iter()
+                .map(|_| self.get_ray(x, y).color(&world) * 255.0 * scale_factor)
+                .sum::<DVec3>();
 
                 format!(
                     "{} {} {}",
-                    pixel_color.x,
-                    pixel_color.y,
-                    pixel_color.z
+                    multisampled_pixel_color.x,
+                    multisampled_pixel_color.y,
+                    multisampled_pixel_color.z
                 )
             })
             .join("\n");

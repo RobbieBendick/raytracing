@@ -7,5 +7,6 @@ edition = "2021"
 glam = "0.24.2"
 indicatif = "0.17.7"
 itertools = "0.11.0"
+rand = "0.8.5"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

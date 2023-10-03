@@ -2,6 +2,7 @@ use glam::DVec3;
 use itertools::Itertools;
 use indicatif::ProgressIterator;
 use std::{fs, io, ops::Range};
+use rand::Rng;
 
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
 const IMAGE_WIDTH: i16 = 400;
@@ -56,9 +57,35 @@ impl Camera {
             viewport_upper_left,
             pixel_00_loc: pixel_00_loc,
             samples_per_pixel: 10,
-            max_depth: 50,
+            max_depth: 10,
         }
 
+    }
+    fn get_ray(&self, x: i16, y: i16) -> Ray {
+        
+        // Get a randomly sampled camera ray for the pixel location at x,y
+        let pixel_center = self.pixel_00_loc + (x as f64 * self.pixel_delta_u) + (y as f64 * self.pixel_delta_v);
+        let pixel_sample = pixel_center + Self::pixel_sample_square();
+
+        let ray_origin = self.center;
+        let ray_direction = pixel_sample - ray_origin;
+
+        return Ray {
+            origin: ray_origin,
+            direction: ray_direction,
+        }
+    }
+
+    fn generate_random_number() -> f64 {
+        let mut rng = rand::thread_rng();
+        return rng.gen_range(0.0..1.0);
+    }
+    
+    fn pixel_sample_square() -> f64 {
+        // Returns a random point in the square surrounding a pixel at the origin.
+        // This is used to sample the pixel for anti-aliasing.
+        let px = -0.5 + Self::generate_random_number();
+        return px;
     }
 
     fn render_to_disk<T>(&self, world: T) where T: Hittable{ 

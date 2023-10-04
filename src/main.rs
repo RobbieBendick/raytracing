@@ -27,7 +27,7 @@ impl Camera {
 
         let image_height: i16 = (image_width as f64 / aspect_ratio) as i16;
         let max_value: i16 = 255;
-        let center = DVec3::new(0., 0., 0.);
+        let center: DVec3 = DVec3::new(0., 0., 0.);
 
         let viewport_height: f64 = 2.0;
         let viewport_width: f64 = viewport_height as f64 * image_width as f64 / image_height as f64;
@@ -106,10 +106,11 @@ impl Camera {
 
                 // get a fraction of a pixel. in this case, it's 1/10th of a pixel
                 // we'll combine the colors of all the samples to get the final color of the pixel
+                // this is anti-aliasing
                 let scale_factor = (self.samples_per_pixel as f64).recip();
 
                 // get the sum of all the colors of the samples for the pixel
-                let multisampled_pixel_color = (0..self.samples_per_pixel)
+                let multisampled_pixel_color: DVec3 = (0..self.samples_per_pixel)
                 .into_iter()
                 .map(|_| {
                     self.get_ray(x, y)
@@ -124,7 +125,6 @@ impl Camera {
                 }
 
                 // lighten the color
-
                 .clamp(
                     DVec3::splat(0.),
                     DVec3::splat(0.999),
@@ -211,9 +211,9 @@ impl Ray {
         }
 
         // if the ray does not hit the sphere, return the background color
-        let unit_direction = self.direction.normalize();
+        let unit_direction: DVec3 = self.direction.normalize();
         let a = 0.5 * (unit_direction.y + 1.0);
-        let background_color = (1.0 - a) * DVec3::new(1., 1., 1.) + a * DVec3::new(0.5, 0.7, 1.0);
+        let background_color: DVec3 = (1.0 - a) * DVec3::new(1., 1., 1.) + a * DVec3::new(0.5, 0.7, 1.0);
         return background_color; 
 
     }
@@ -221,7 +221,10 @@ impl Ray {
 
 
 struct HitRecord {
-    point: DVec3, normal: DVec3, t: f64, front_face: bool,
+    point: DVec3,
+    normal: DVec3,
+    t: f64,
+    front_face: bool,
 }
 
 impl HitRecord {
@@ -231,7 +234,7 @@ impl HitRecord {
         t: f64,
         front_face: bool,
     ) -> Self {
-        let normal = if front_face { normal } else { -normal };
+        let normal: DVec3 = if front_face { normal } else { -normal };
 
         // return the hit record
         Self {
@@ -243,6 +246,16 @@ impl HitRecord {
     }
 }
 
+trait Hittable {
+    fn hit(
+        &self,
+        ray: &Ray,
+        interval: Range<f64>,
+        // ray_tmin: f64,
+        // ray_tmax: f64,
+        // record: HitRecord,
+    ) -> Option<HitRecord>;
+}
 
 struct HittableList {
     objects: Vec<Box<dyn Hittable>>,
@@ -256,17 +269,6 @@ impl HittableList {
     fn add<T>(&mut self, object: T) where T: Hittable + 'static, {
         self.objects.push(Box::new(object));
     }
-}
-
-trait Hittable {
-    fn hit(
-        &self,
-        ray: &Ray,
-        interval: Range<f64>,
-        // ray_tmin: f64,
-        // ray_tmax: f64,
-        // record: HitRecord,
-    ) -> Option<HitRecord>;
 }
 
 impl Hittable for HittableList {
@@ -289,7 +291,6 @@ impl Hittable for HittableList {
         return hit_record;
     }
 }
-
 
 struct Sphere {
     center: DVec3,
@@ -324,8 +325,8 @@ impl Hittable for Sphere {
         }
 
         let t = root;
-        let point = ray.at(t);
-        let outward_normal = (point - self.center) / self.radius;
+        let point: DVec3 = ray.at(t);
+        let outward_normal: DVec3 = (point - self.center) / self.radius;
 
         // return the hit record
         let rec = HitRecord::with_face_normal(
@@ -342,7 +343,7 @@ impl Hittable for Sphere {
 fn random_in_unit_sphere() -> DVec3 {
     let mut rng = rand::thread_rng();
     loop {
-        let vec = DVec3::new(
+        let vec: DVec3 = DVec3::new(
             rng.gen_range(-1.0..1.0),
             rng.gen_range(-1.0..1.0),
             rng.gen_range(-1.0..1.0),

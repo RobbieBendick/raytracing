@@ -1,7 +1,7 @@
 use glam::DVec3;
 use itertools::Itertools;
 use indicatif::ProgressIterator;
-use std::{fs, io, ops::Range};
+use std::{fs, io, ops::Range, ops::Neg};
 use rand::Rng;
 
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
@@ -118,6 +118,7 @@ impl Camera {
                 })
                 .sum::<DVec3>() * scale_factor;
 
+                // covert the multisampled pixel color from linear to gamma
                 let color = DVec3 {
                     x: linear_to_gamma(multisampled_pixel_color.x),
                     y: linear_to_gamma(multisampled_pixel_color.y),
@@ -162,6 +163,9 @@ fn main() -> io::Result<()> {
         Sphere {
             center: DVec3::new(0., 0., -1.),
             radius: 0.82,
+            material: Material::Lambertian {
+                albedo: DVec3::new(0.1, 0.2, 0.5),
+            },
         }
     );
 
@@ -169,6 +173,9 @@ fn main() -> io::Result<()> {
         Sphere {
             center: DVec3::new(0., -100.5, -1.),
             radius: 100.,
+            material: Material::Lambertian {
+                albedo: DVec3::new(0.8, 0.8, 0.),
+            },
         }
     );
 
@@ -202,12 +209,20 @@ impl Ray {
 
         // if the ray hits the sphere, return the sphere's color
         if let Some(rec) = world.hit(&self, (0.001)..f64::INFINITY) {
-            let direction = rec.normal + random_unit_vector();
-            let ray = Ray {
-                origin: rec.point,
-                direction: direction,
+
+            let Some(Scattered {
+                attenuation,
+                scattered,
+            }) = rec.material.scatter(self, rec.clone())
+            else {
+                return DVec3::ZERO;
             };
-            return 0.3 * ray.color(depth - 1, world);   
+
+            let color_from_scatter = attenuation * scattered.color(
+                depth - 1,
+                world,
+            );
+            return color_from_scatter;
         }
 
         // if the ray does not hit the sphere, return the background color
@@ -220,15 +235,18 @@ impl Ray {
 }
 
 
+#[derive(Clone)]
 struct HitRecord {
     point: DVec3,
     normal: DVec3,
     t: f64,
     front_face: bool,
+    material: Material,
 }
 
 impl HitRecord {
     fn with_face_normal(
+        material: Material,
         point: DVec3,
         normal: DVec3,
         t: f64,
@@ -238,6 +256,7 @@ impl HitRecord {
 
         // return the hit record
         Self {
+            material,
             point,
             normal,
             t,
@@ -256,6 +275,81 @@ trait Hittable {
         // record: HitRecord,
     ) -> Option<HitRecord>;
 }
+
+#[non_exhaustive]
+#[derive(Clone)]
+enum Material {
+    Lambertian {
+        albedo: DVec3,
+    },
+    Metal {
+        albedo: DVec3,
+        fuzz: f64,
+    },
+}
+
+struct Scattered {
+    attenuation: DVec3,
+    scattered: Ray,
+}
+
+impl Material {
+    fn scatter(
+        &self,
+        r_in: &Ray,
+        hit_record: HitRecord,
+    ) -> Option<Scattered> {
+        match self {
+            Material::Lambertian { albedo } => {
+                let mut scatter_direction = hit_record
+                    .normal
+                    + random_unit_vector();
+
+                // Catch degenerate scatter direction
+                if scatter_direction
+                    .abs_diff_eq(DVec3::ZERO, 1e-8)
+                {
+                    scatter_direction = hit_record.normal;
+                }
+
+                Some(Scattered {
+                    attenuation: *albedo,
+                    scattered: Ray {
+                        origin: hit_record.point,
+                        direction: scatter_direction,
+                    },
+                })
+            }
+
+            Material::Metal { albedo, fuzz } => {
+                let reflected: DVec3 = reflect(
+                    r_in.direction.normalize(),
+                    hit_record.normal,
+                );
+                let scattered = Ray {
+                    origin: hit_record.point,
+                    direction: reflected
+                        + *fuzz * random_unit_vector(),
+                };
+                // absorb any scatter that is below the surface
+                if scattered
+                    .direction
+                    .dot(hit_record.normal)
+                    > 0.
+                {
+                    Some(Scattered {
+                        attenuation: *albedo,
+                        scattered,
+                    })
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+}
+
 
 struct HittableList {
     objects: Vec<Box<dyn Hittable>>,
@@ -295,6 +389,7 @@ impl Hittable for HittableList {
 struct Sphere {
     center: DVec3,
     radius: f64,
+    material: Material,
 }
 
 impl Hittable for Sphere {
@@ -330,6 +425,7 @@ impl Hittable for Sphere {
 
         // return the hit record
         let rec = HitRecord::with_face_normal(
+            self.material.clone(),
             point,
             outward_normal,
             t,
@@ -367,4 +463,32 @@ fn random_on_hemisphere(normal: &DVec3) -> DVec3 {
     } else {
         return -on_unit_sphere;
     }
+}
+
+
+fn reflect(v: DVec3, n: DVec3) -> DVec3 {
+    return v - 2. * v.dot(n) * n;
+}
+
+fn refract(
+    uv: DVec3,
+    n: DVec3,
+    etai_over_etat: f64,
+) -> DVec3 {
+    let cos_theta = uv.neg().dot(n).min(1.0);
+    let r_out_perp = etai_over_etat * (uv + cos_theta * n);
+    let r_out_parallel: DVec3 = (1.0
+        - r_out_perp.length_squared())
+    .abs()
+    .sqrt()
+    .neg()
+        * n;
+    return r_out_perp + r_out_parallel;
+}
+
+fn reflectance(cosine: f64, ref_idx: f64) -> f64 {
+    // Use Schlick's approximation for reflectance.
+    let mut r0 = (1. - ref_idx) / (1. + ref_idx);
+    r0 = r0 * r0;
+    return r0 + (1. - r0) * (1. - cosine).powf(5.);
 }

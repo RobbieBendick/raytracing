@@ -1,6 +1,8 @@
-# RayTracing Project
+# Rust RayTracing
 
-Welcome to my RayTracing project – where spheres come to life with shadows, reflections, and refractions, each exhibiting its unique material properties.
+![RayTracing Project Image](./assets/raytracing_output.png)
+
+### Welcome to my RayTracing project – where spheres come to life with shadows, reflections, and refractions, each exhibiting its unique material properties.
 
 **Key Features:**
 - Render realistic spheres with dynamic shadows that dance with the play of light.

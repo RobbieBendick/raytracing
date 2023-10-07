@@ -8,6 +8,6 @@ Welcome to my RayTracing project – where spheres come to life with shadows, re
 - Delve into the optical illusions of refractions, revealing the inner character of spheres through different materials.
 
 **Inspiration:**
-Inspired by the principles outlined in the ["Raytracing in a Weekend"](https://raytracing.github.io/books/RayTracingInOneWeekend.html) book, this project takes the essence of ray tracing and manifests it into a Rust-powered spectacle.
+Inspired by the principles outlined in the ["Raytracing in One Weekend"](https://raytracing.github.io/books/RayTracingInOneWeekend.html) book, this project takes the essence of ray tracing and manifests it into a Rust-powered spectacle.
 
 Embark on a visual journey where each sphere is not just an object but a canvas for exploring the nuances of light, shadows, and materials.

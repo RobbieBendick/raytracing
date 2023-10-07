@@ -1,4 +1,4 @@
-# Rust Raytracing
+# Rust RayTracing
 
 ![RayTracing Project Image](./assets/raytracing_output.png)
 

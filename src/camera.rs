@@ -84,7 +84,7 @@ impl Camera {
             pixel_delta_v,
             viewport_upper_left,
             pixel_00_loc: pixel_00_loc,
-            samples_per_pixel: 300,
+            samples_per_pixel: 500,
             max_depth: 50,
             vfov,
             look_from,

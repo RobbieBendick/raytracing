@@ -2,6 +2,8 @@ use crate::ray::Ray;
 use glam::DVec3;
 use rand::Rng;
 use std::{ops::{Range, Neg}, f64::consts::PI};
+use rand_xoshiro::Xoshiro128PlusPlus;
+use rand::SeedableRng;
 
 pub trait Hittable {
     fn hit(&self, ray: &Ray, interval: Range<f64>) -> Option<HitRecord>;
@@ -322,7 +324,7 @@ fn reflectance(cosine: f64, ref_idx: f64) -> f64 {
 }
 
 fn random_in_unit_sphere() -> DVec3 {
-    let mut rng = rand::thread_rng();
+    let mut rng = Xoshiro128PlusPlus::from_entropy();
     loop {
         let vec: DVec3 = DVec3::new(
             rng.gen_range(-1.0..1.0),

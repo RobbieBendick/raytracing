@@ -6,6 +6,8 @@ use indicatif::ProgressIterator;
 use itertools::Itertools;
 use std::{fs, io, f64::consts::PI};
 use rand::Rng;
+use rand_xoshiro::Xoshiro128PlusPlus;
+use rand::SeedableRng;
 
 pub struct Camera {
     image_width: i16,
@@ -35,41 +37,41 @@ pub struct Camera {
 impl Camera {
 
     pub fn new(image_width: i16, aspect_ratio: f64) -> Self {
-        let vfov: f64 = 20.0;
-        let look_from: DVec3 = DVec3::new(13., 2., 3.);
-        let look_at: DVec3 = DVec3::ZERO;
-        let v_up: DVec3 = DVec3::new(0., 1., 0.);
+        let vfov = 20.0;
+        let look_from = DVec3::new(13., 2., 3.);
+        let look_at = DVec3::ZERO;
+        let v_up = DVec3::new(0., 1., 0.);
 
-        let focus_dist: f64 = 10.0;
+        let focus_dist = 10.0;
 
-        let max_value: i16 = 255;
-        let image_height: i16 = (image_width as f64 / aspect_ratio) as i16;
+        let max_value = 255;
+        let image_height = (image_width as f64 / aspect_ratio) as i16;
 
 
         let theta = degrees_to_radians(vfov);
         let h = (theta / 2.0).tan();
-        let viewport_height: f64 = 2. * h as f64 * focus_dist as f64;
+        let viewport_height = 2. * h as f64 * focus_dist as f64;
 
         let w = unit_vector(look_from - look_at);
         let u = unit_vector(cross(v_up, w));
         let v = cross(w, u);
 
-        let viewport_width: f64 = viewport_height as f64 * (image_width as f64 / image_height as f64);
+        let viewport_width = viewport_height as f64 * (image_width as f64 / image_height as f64);
 
         let center = look_from;
 
         // calculate the vectors across the horizontal and down the vertical viewport edges.
-        let viewport_u: DVec3 = viewport_width * u;
-        let viewport_v: DVec3 = viewport_height * -v;
+        let viewport_u = viewport_width * u;
+        let viewport_v = viewport_height * -v;
 
         // calculate the pixel deltas
-        let pixel_delta_u: DVec3 = viewport_u / image_width as f64;
-        let pixel_delta_v: DVec3 = viewport_v / image_height as f64;
+        let pixel_delta_u = viewport_u / image_width as f64;
+        let pixel_delta_v = viewport_v / image_height as f64;
 
-        let viewport_upper_left: DVec3 = center - (focus_dist * w) - viewport_u / 2. - viewport_v / 2.;
-        let pixel_00_loc: DVec3 = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
+        let viewport_upper_left = center - (focus_dist * w) - viewport_u / 2. - viewport_v / 2.;
+        let pixel_00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
 
-        let defocus_angle: f64 = 0.6;
+        let defocus_angle = 0.6;
         let defocus_radius = focus_dist * (degrees_to_radians(defocus_angle / 2.)).tan();
         let defocus_disk_u = u * defocus_radius;
         let defocus_disk_v = v * defocus_radius;
@@ -84,7 +86,7 @@ impl Camera {
             pixel_delta_v,
             viewport_upper_left,
             pixel_00_loc: pixel_00_loc,
-            samples_per_pixel: 500,
+            samples_per_pixel: 250,
             max_depth: 50,
             vfov,
             look_from,
@@ -124,7 +126,7 @@ impl Camera {
     }
 
     fn generate_random_number() -> f64 {
-        let mut rng = rand::thread_rng();
+        let mut rng = Xoshiro128PlusPlus::from_entropy();
         return rng.gen_range(0.0..1.0);
     }
     
@@ -151,7 +153,7 @@ impl Camera {
 
             // map over every x and y coordinate on every pixel
             .map(|(y, x)| {
-                // get a fraction of a pixel. in this case, it's 1/10th of a pixel
+                // get a fraction of a pixel. in this case, it's 1/500th of a pixel
                 // we'll combine the colors of all the samples to get the final color of the pixel
                 // this is anti-aliasing
                 let scale_factor = (self.samples_per_pixel as f64).recip();
@@ -188,7 +190,7 @@ impl Camera {
             .join("\n");
         
         // write the image to a file
-        fs::write("output.ppm", format!(
+        let _ = fs::write("output.ppm", format!(
             "P3
 {} {}
 {}
@@ -225,7 +227,7 @@ fn defocus_disk_sample(center: DVec3, defocus_disk_u: DVec3, defocus_disk_v: DVe
 }
 
 fn random_in_unit_disk() -> DVec3 {
-    let mut rng = rand::thread_rng();
+    let mut rng = Xoshiro128PlusPlus::from_entropy();
 
     loop {
         let p = DVec3::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), 0.0);

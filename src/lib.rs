@@ -3,6 +3,8 @@ pub mod camera;
 pub mod ray;
 pub mod hittable;
 
+use std::thread;
+
 use glam::DVec3;
 use hittable::{HittableList, Sphere, Material};
 use rand::Rng;
@@ -24,10 +26,51 @@ fn random_color() -> DVec3 {
     );
 }
 
+
+fn create_spheres(sphere_count: i32 ) -> HittableList {
+    let mut rng: Xoshiro128PlusPlus = Xoshiro128PlusPlus::from_entropy();
+    let mut sphere_list: HittableList = HittableList { objects: vec![] };
+    let radius = 0.35;
+    for _ in 0..sphere_count {
+        let choose_mat = rng.gen::<f64>();
+        let center = DVec3::new(    
+            rng.gen_range(-4.5..4.5) as f64 * rng.gen::<f64>(),
+            radius,
+            rng.gen_range(-4.5..4.5) as f64 * rng.gen::<f64>(),
+        );
+
+        if (center - DVec3::new(4.0, 0.2, 0.0)).length() > 0.9 {
+            if choose_mat < 0.8 {
+                // Lambertian
+                let albedo = random_color();
+                sphere_list.add(Sphere {
+                    center,
+                    radius,
+                    material: Material::Lambertian { albedo },
+                });
+            } else if choose_mat < 0.95 {
+                // metal
+                let albedo = random_color();
+                sphere_list.add(Sphere {
+                    center,
+                    radius,
+                    material: Material::Metal {albedo: albedo, fuzz: 0.08},
+                });
+            } else {
+                // glass
+                sphere_list.add(Sphere {
+                    center,
+                    radius,
+                    material: Material::Dielectric {index_of_refraction: 0.},
+                });
+            }
+        }
+    }
+    return sphere_list;
+}
+
 pub fn create_world() {
     let mut world: HittableList = HittableList { objects: vec![] };
-    let mut rng: Xoshiro128PlusPlus = Xoshiro128PlusPlus::from_entropy();
-    
     // ground
     world.add(
         Sphere {
@@ -38,46 +81,42 @@ pub fn create_world() {
             },
         }
     );
-     
-    let radius = 0.35;
+    let num_cores = num_cpus::get();
+    let num_spheres = 16;  // Adjust as needed
+    let spheres_per_thread: i32 = num_spheres as i32 / num_cores as i32;
+    let mut leftovers = num_spheres % num_cores;
 
-    for a in -2..2 {
-        for b in -2..2 {
-            let choose_mat = rng.gen::<f64>();
-            let center = DVec3::new(    
-                a as f64 + 0.9 * rng.gen::<f64>(),
-                radius,
-                b as f64 + 0.9 * rng.gen::<f64>(),
-            );
+    let mut handles  = vec![];
 
-            if (center - DVec3::new(4.0, 0.2, 0.0)).length() > 0.9 {
-                if choose_mat < 0.8 {
-                    // Lambertian
-                    let albedo = random_color();
-                    world.add(Sphere {
-                        center,
-                        radius,
-                        material: Material::Lambertian { albedo },
-                    });
-                } else if choose_mat < 0.95 {
-                    // metal
-                    let albedo = random_color();
-                    world.add(Sphere {
-                        center,
-                        radius,
-                        material: Material::Metal {albedo: albedo, fuzz: 0.08},
-                    });
+    let num_threads = if num_cores > num_spheres { num_spheres } else { num_cores };
+    
+    for a in 0..num_threads {
+        if a == 0 {
+            let num_spheres_local = if leftovers > 0 {
+                leftovers -= 1;
+                spheres_per_thread + 1
+            } else {
+                spheres_per_thread
+            };
+            world.add(create_spheres(num_spheres_local));
+        } else {
+            let handle = thread::spawn(move || {
+                let num_spheres_local = if leftovers > 0 {
+                    leftovers -= 1;
+                    spheres_per_thread + 1
                 } else {
-                    // glass
-                    world.add(Sphere {
-                        center,
-                        radius,
-                        material: Material::Dielectric {index_of_refraction: 0.},
-                    });
-                }
-            }
+                    spheres_per_thread
+                };
+                return create_spheres(num_spheres_local as i32);
+            });
+            handles.push(handle);
         }
     }
+
+    for handle in handles {
+        world.add(handle.join().unwrap());
+    }
+
     // initialize the camera
     let camera = Camera::new(IMAGE_WIDTH, ASPECT_RATIO);
 

@@ -156,12 +156,14 @@ impl Camera {
                 // this is anti-aliasing
                 let scale_factor = (self.samples_per_pixel as f64).recip();
     
+                // get the sum of all the colors of the samples for the pixel
                 let multisampled_pixel_color: DVec3 = (0..self.samples_per_pixel)
                     .into_par_iter() // Use into_par_iter instead of into_iter
                     .map(|_| self.get_ray(x, y).color(self.max_depth, &world))
                     .sum::<DVec3>()
                     * scale_factor;
     
+                // covert the multisampled pixel color from linear to gamma
                 let color = DVec3 {
                     x: linear_to_gamma(multisampled_pixel_color.x),
                     y: linear_to_gamma(multisampled_pixel_color.y),
@@ -177,7 +179,7 @@ impl Camera {
             .collect::<Vec<String>>()
             .join("\n");
         
-        // write the image to file
+        // write the image to a file
         let _ = fs::write(
             "output.ppm",
             format!(

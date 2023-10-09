@@ -71,46 +71,28 @@ fn create_spheres(sphere_count: i32 ) -> HittableList {
 
 pub fn create_world() {
     let mut world: HittableList = HittableList { objects: vec![] };
+
     // ground
-    world.add(
-        Sphere {
-            center: DVec3::new(0., -1000., 0.),
-            radius: 1000.,
-            material: Material::Lambertian {
-                albedo: DVec3::new(0.5, 0.5, 0.5),
-            },
-        }
-    );
+    world.add(Sphere {
+        center: DVec3::new(0., -1000., 0.),
+        radius: 1000.,
+        material: Material::Lambertian {
+            albedo: DVec3::new(0.5, 0.5, 0.5),
+        },
+    });
+
     let num_cores = num_cpus::get();
-    let num_spheres = 16;  // Adjust as needed
-    let spheres_per_thread: i32 = num_spheres as i32 / num_cores as i32;
+    let num_spheres = 100;  // Adjust as needed
+    let spheres_per_thread = num_spheres / num_cores;
     let mut leftovers = num_spheres % num_cores;
 
-    let mut handles  = vec![];
+    let mut handles = vec![];
 
-    let num_threads = if num_cores > num_spheres { num_spheres } else { num_cores };
-    
-    for a in 0..num_threads {
-        if a == 0 {
-            let num_spheres_local = if leftovers > 0 {
-                leftovers -= 1;
-                spheres_per_thread + 1
-            } else {
-                spheres_per_thread
-            };
-            world.add(create_spheres(num_spheres_local));
-        } else {
-            let handle = thread::spawn(move || {
-                let num_spheres_local = if leftovers > 0 {
-                    leftovers -= 1;
-                    spheres_per_thread + 1
-                } else {
-                    spheres_per_thread
-                };
-                return create_spheres(num_spheres_local as i32);
-            });
-            handles.push(handle);
-        }
+    for _ in 0..num_cores {
+        let num_spheres_local = spheres_per_thread + if leftovers > 0 { leftovers -= 1; 1 } else { 0 };
+
+        let handle = thread::spawn(move || create_spheres(num_spheres_local as i32));
+        handles.push(handle);
     }
 
     for handle in handles {

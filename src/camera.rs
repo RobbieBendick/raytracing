@@ -151,6 +151,9 @@ impl Camera {
             .into_par_iter()
 
             .map(|(y, x)| {
+                // get a fraction of a pixel. in this case, it's 1/500th of a pixel
+                // we'll combine the colors of all the samples to get the final color of the pixel
+                // this is anti-aliasing
                 let scale_factor = (self.samples_per_pixel as f64).recip();
     
                 let multisampled_pixel_color: DVec3 = (0..self.samples_per_pixel)

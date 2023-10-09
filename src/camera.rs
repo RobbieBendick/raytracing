@@ -2,12 +2,13 @@
 use crate::ray::Ray;
 use crate::hittable::Hittable;
 use glam::DVec3;
-use indicatif::ProgressIterator;
 use itertools::Itertools;
+use rayon::prelude::IntoParallelIterator;
 use std::{fs, io, f64::consts::PI};
 use rand::Rng;
 use rand_xoshiro::Xoshiro128PlusPlus;
 use rand::SeedableRng;
+use rayon::prelude::*;
 
 pub struct Camera {
     image_width: i16,
@@ -139,64 +140,51 @@ impl Camera {
     }
 
     pub fn render_to_disk<T>(&self, world: T) -> io::Result<()>
-     where T: Hittable + std::marker::Sync { 
-
+    where
+        T: Hittable + std::marker::Sync,
+    {
         let pixels: String = (0..self.image_height)
-
-            // get x, y coordinates of every pixel
             .cartesian_product(0..self.image_width)
+            .collect::<Vec<(i16, i16)>>()
 
-            // progress bar
-            .progress_count(
-                self.image_height as u64 * self.image_width as u64,
-            )
+            // run in parallel (multi-threaded)
+            .into_par_iter()
 
-            // map over every x and y coordinate on every pixel
             .map(|(y, x)| {
-                // get a fraction of a pixel. in this case, it's 1/500th of a pixel
-                // we'll combine the colors of all the samples to get the final color of the pixel
-                // this is anti-aliasing
                 let scale_factor = (self.samples_per_pixel as f64).recip();
-
-                // get the sum of all the colors of the samples for the pixel
+    
                 let multisampled_pixel_color: DVec3 = (0..self.samples_per_pixel)
-                .into_iter()
-                .map(|_| {
-                    self.get_ray(x, y)
-                        .color(self.max_depth, &world)
-                })
-                .sum::<DVec3>() * scale_factor;
-
-                // covert the multisampled pixel color from linear to gamma
+                    .into_par_iter() // Use into_par_iter instead of into_iter
+                    .map(|_| self.get_ray(x, y).color(self.max_depth, &world))
+                    .sum::<DVec3>()
+                    * scale_factor;
+    
                 let color = DVec3 {
                     x: linear_to_gamma(multisampled_pixel_color.x),
                     y: linear_to_gamma(multisampled_pixel_color.y),
                     z: linear_to_gamma(multisampled_pixel_color.z),
                 }
 
-                // lighten the color
-                .clamp(
-                    DVec3::splat(0.),
-                    DVec3::splat(0.999),
-                ) * 256.;
-
-                format!(
-                    "{} {} {}",
-                    color.x,
-                    color.y,
-                    color.z
-                )
+                // lighten the collor
+                .clamp(DVec3::splat(0.), DVec3::splat(0.999))
+                * 256.;
+    
+                format!("{} {} {}", color.x, color.y, color.z)
             })
+            .collect::<Vec<String>>()
             .join("\n");
         
-        // write the image to a file
-        let _ = fs::write("output.ppm", format!(
-            "P3
+        // write the image to file
+        let _ = fs::write(
+            "output.ppm",
+            format!(
+                "P3
 {} {}
 {}
 {}",
-            self.image_width, self.image_height, self.max_value, pixels
-        ));
+                self.image_width, self.image_height, self.max_value, pixels
+            ),
+        );
         Ok(())
     }
 }

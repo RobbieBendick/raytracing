@@ -11,7 +11,7 @@ use rand::SeedableRng;
 use rand_xoshiro::Xoshiro128PlusPlus;
 
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
-const IMAGE_WIDTH: i16 = 600;
+const IMAGE_WIDTH: i16 = 1200;
 
 
 fn random_color() -> DVec3 {
@@ -41,8 +41,8 @@ pub fn create_world() {
      
     let radius = 0.35;
 
-    for a in -2..2 {
-        for b in -2..2 {
+    for a in -5..5 {
+        for b in -5..5 {
             let choose_mat = rng.gen::<f64>();
             let center = DVec3::new(    
                 a as f64 + 0.9 * rng.gen::<f64>(),

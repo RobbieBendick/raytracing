@@ -5,9 +5,9 @@
 ### Welcome to my RayTracing project – where spheres come to life with shadows, reflections, and refractions, each exhibiting its unique material properties.
 
 **Key Features:**
-- Anti-aliasing for a higher quality image.
-- Takes advantage of the xoshiro RNG algorithms to reduce compile time.
-- Implements multi-threading to significantly decrease compile time.
+- Enhanced image quality through anti-aliasing.
+- Utilizes the xoshiro random number generator algorithms to optimize compilation speed.
+- Implements multi-threading to substantially reduce compilation times.
 
 **Inspiration:**
 Inspired by the principles outlined in the ["Ray Tracing in One Weekend"](https://raytracing.github.io/books/RayTracingInOneWeekend.html) book, this project takes the essence of ray tracing and manifests it into a Rust-powered spectacle.
